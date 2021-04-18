@@ -160,6 +160,7 @@ class DQNPolicy(BasePolicy):
         q = self(batch).logits
         q = q[np.arange(len(q)), batch.act]
         r = to_torch_as(batch.returns.flatten(), q)
+        weight = to_torch_as(weight, q)
         td = r - q
         loss = (td.pow(2) * weight).mean()
         batch.weight = td  # prio-buffer
@@ -180,3 +181,38 @@ class DQNPolicy(BasePolicy):
             rand_act = q.argmax(axis=1)
             act[rand_mask] = rand_act[rand_mask]
         return act
+
+class TPDQNPolicy(DQNPolicy):
+    
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        optim: torch.optim.Optimizer,
+        discount_factor: float = 0.99,
+        estimation_step: int = 1,
+        target_update_freq: int = 0,
+        reward_normalization: bool = False,
+        tper_weight: float = 0.8,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(
+            model = model,
+            optim = optim,
+            discount_factor = discount_factor,
+            estimation_step = estimation_step,
+            target_update_freq = target_update_freq,
+            reward_normalization = reward_normalization,
+            **kwargs, 
+        )
+        self.tper_weight = tper_weight
+        assert self.tper_weight < 1
+
+    def process_fn(
+        self, batch: Batch, buffer: ReplayBuffer, indice: np.ndarray
+    ) -> Batch:
+        batch = super().process_fn(batch, buffer, indice)
+        step = batch.step
+        med = np.median(step)
+        weight = np.where(step < med, self.tper_weight, 2 - self.tper_weight)
+        batch.update({"weight": weight})
+        return batch

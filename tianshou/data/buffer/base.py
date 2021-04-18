@@ -27,7 +27,7 @@ class ReplayBuffer:
         when using frame-stack sampling method. Default to False.
     """
 
-    _reserved_keys = ("obs", "act", "rew", "done", "obs_next", "info", "policy")
+    _reserved_keys = ("obs", "act", "rew", "done", "obs_next", "info", "policy", "step")
 
     def __init__(
         self,

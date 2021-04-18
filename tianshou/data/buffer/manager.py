@@ -168,6 +168,20 @@ class ReplayBufferManager(ReplayBuffer):
             for offset, buf, bsz in zip(self._offset, self.buffers, sample_num)
         ])
 
+class TPRBManager(ReplayBufferManager):
+
+    def __init__(self, buffer_list: List[ReplayBuffer]) -> None:
+        super().__init__(buffer_list)
+    def __getitem__(self, index: Union[slice, int, List[int], np.ndarray]) -> Batch:
+        ori_batch = super().__getitem__(index)
+        if isinstance(index, slice):  # change slice to np array
+            # buffer[:] will get all available data
+            indice = self.sample_index(0) if index == slice(None) \
+                else self._indices[:len(self)][index]
+        else:
+            indice = index
+        ori_batch.update({"step": self.step[indice]})
+        return ori_batch
 
 class PrioritizedReplayBufferManager(PrioritizedReplayBuffer, ReplayBufferManager):
     """PrioritizedReplayBufferManager contains a list of PrioritizedReplayBuffer with \

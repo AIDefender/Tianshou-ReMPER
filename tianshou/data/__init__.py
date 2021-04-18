@@ -4,8 +4,10 @@ from tianshou.data.utils.segtree import SegmentTree
 from tianshou.data.buffer.base import ReplayBuffer
 from tianshou.data.buffer.prio import PrioritizedReplayBuffer
 from tianshou.data.buffer.manager import ReplayBufferManager
+from tianshou.data.buffer.manager import TPRBManager
 from tianshou.data.buffer.manager import PrioritizedReplayBufferManager
 from tianshou.data.buffer.vecbuf import VectorReplayBuffer
+from tianshou.data.buffer.vecbuf import TPVectorReplayBuffer
 from tianshou.data.buffer.vecbuf import PrioritizedVectorReplayBuffer
 from tianshou.data.buffer.cached import CachedReplayBuffer
 from tianshou.data.collector import Collector, AsyncCollector

@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Any
 
-from tianshou.data import ReplayBuffer, ReplayBufferManager
+from tianshou.data import ReplayBuffer, ReplayBufferManager, TPRBManager
 from tianshou.data import PrioritizedReplayBuffer, PrioritizedReplayBufferManager
 
 
@@ -29,6 +29,12 @@ class VectorReplayBuffer(ReplayBufferManager):
         buffer_list = [ReplayBuffer(size, **kwargs) for _ in range(buffer_num)]
         super().__init__(buffer_list)
 
+class TPVectorReplayBuffer(TPRBManager):
+    def __init__(self, total_size: int, buffer_num: int, **kwargs: Any) -> None:
+        assert buffer_num > 0
+        size = int(np.ceil(total_size / buffer_num))
+        buffer_list = [ReplayBuffer(size, **kwargs) for _ in range(buffer_num)]
+        super().__init__(buffer_list)
 
 class PrioritizedVectorReplayBuffer(PrioritizedReplayBufferManager):
     """PrioritizedVectorReplayBuffer contains n PrioritizedReplayBuffer with same size.
