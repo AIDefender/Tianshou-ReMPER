@@ -1,4 +1,5 @@
 import os
+import time
 import torch
 import pprint
 import argparse
@@ -93,7 +94,8 @@ def test_dqn(args=get_args()):
     train_collector = Collector(policy, train_envs, buffer, exploration_noise=True)
     test_collector = Collector(policy, test_envs, exploration_noise=True)
     # log
-    log_path = os.path.join(args.logdir, args.task, 'dqn')
+    cur_time = time.strftime('%y-%m-%d-%H-%M-%S', time.localtime())
+    log_path = os.path.join(args.logdir, args.task, 'dqn', cur_time)
     writer = SummaryWriter(log_path)
     writer.add_text("args", str(args))
     logger = BasicLogger(writer)
@@ -102,12 +104,13 @@ def test_dqn(args=get_args()):
         torch.save(policy.state_dict(), os.path.join(log_path, 'policy.pth'))
 
     def stop_fn(mean_rewards):
-        if env.env.spec.reward_threshold:
-            return mean_rewards >= env.spec.reward_threshold
-        elif 'Pong' in args.task:
-            return mean_rewards >= 20
-        else:
-            return False
+        # if env.env.spec.reward_threshold:
+        #     return mean_rewards >= env.spec.reward_threshold
+        # elif 'Pong' in args.task:
+        #     return mean_rewards >= 20
+        # else:
+        #     return False
+        return False
 
     def train_fn(epoch, env_step):
         # nature DQN setting, linear decay in the first 1M steps
