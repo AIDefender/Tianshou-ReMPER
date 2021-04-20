@@ -122,7 +122,7 @@ def test_dqn(args=get_args()):
     )
     # log
     cur_time = time.strftime('%y-%m-%d-%H-%M-%S', time.localtime())
-    log_path = os.path.join(args.logdir, args.task, 'dqn', args.exp, cur_time)
+    log_path = os.path.join(args.logdir, args.task, 'dqn', "%s-seed%d"%(args.exp, args.seed), cur_time)
     writer = SummaryWriter(log_path)
     writer.add_text("args", str(args))
     logger = BasicLogger(writer)
