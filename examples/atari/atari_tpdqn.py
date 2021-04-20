@@ -33,7 +33,7 @@ def get_args():
     parser.add_argument('--step-per-epoch', type=int, default=100000)
     parser.add_argument('--step-per-collect', type=int, default=10)
     parser.add_argument('--update-per-step', type=float, default=0.1)
-    parser.add_argument('--batch-size', type=int, default=64)
+    parser.add_argument('--batch-size', type=int, default=32)
     parser.add_argument('--training-num', type=int, default=10)
     parser.add_argument('--test-num', type=int, default=10)
     parser.add_argument('--logdir', type=str, default='log')
@@ -47,7 +47,7 @@ def get_args():
     parser.add_argument('--watch', default=False, action='store_true',
                         help='watch the play of pre-trained policy only')
     parser.add_argument('--save-buffer-name', type=str, default=None)
-    parser.add_argument('--tper_weight', type=float, default=0.4)
+    parser.add_argument('--tper_weight', type=float, default=0.8)
     return parser.parse_args()
 
 
