@@ -13,8 +13,8 @@ from tianshou.env import SubprocVectorEnv
 from tianshou.trainer import offpolicy_trainer
 from tianshou.data import Collector, TPVectorReplayBuffer
 
-from atari_network import DQN
-from atari_wrapper import wrap_deepmind
+from atari_network import DQN, RamDQN
+from atari_wrapper import wrap_deepmind, wrap_ram
 
 
 def get_args():
@@ -53,10 +53,14 @@ def get_args():
 
 def make_atari_env(args):
     return wrap_deepmind(args.task, frame_stack=args.frames_stack)
-
+def make_ram_env(args):
+    return wrap_ram(args.task, frame_stack=args.frames_stack)
 
 def make_atari_env_watch(args):
     return wrap_deepmind(args.task, frame_stack=args.frames_stack,
+                         episode_life=False, clip_rewards=False)
+def make_ram_env_watch(args):
+    return wrap_ram(args.task, frame_stack=args.frames_stack,
                          episode_life=False, clip_rewards=False)
 
 class StepPreprocess():
@@ -73,16 +77,31 @@ class StepPreprocess():
         return Batch()
 
 def test_dqn(args=get_args()):
-    env = make_atari_env(args)
+    if 'ram' in args.task and 'NoFrame' not in args.task:
+        use_ram = True
+    else:
+        use_ram = False
+    
+    if use_ram:
+        env = make_ram_env(args)
+        make_env_fn = make_ram_env
+        make_watch_fn= make_ram_env_watch
+        save_only_last_obs = False
+    else:
+        env = make_atari_env(args)
+        make_env_fn = make_atari_env
+        make_watch_fn = make_atari_env_watch
+        save_only_last_obs = True
+
     args.state_shape = env.observation_space.shape or env.observation_space.n
     args.action_shape = env.env.action_space.shape or env.env.action_space.n
     # should be N_FRAMES x H x W
     print("Observations shape:", args.state_shape)
     print("Actions shape:", args.action_shape)
     # make environments
-    train_envs = SubprocVectorEnv([lambda: make_atari_env(args)
+    train_envs = SubprocVectorEnv([lambda: make_env_fn(args)
                                    for _ in range(args.training_num)])
-    test_envs = SubprocVectorEnv([lambda: make_atari_env_watch(args)
+    test_envs = SubprocVectorEnv([lambda: make_watch_fn(args)
                                   for _ in range(args.test_num)])
     # seed
     np.random.seed(args.seed)
@@ -90,8 +109,13 @@ def test_dqn(args=get_args()):
     train_envs.seed(args.seed)
     test_envs.seed(args.seed)
     # define model
-    net = DQN(*args.state_shape,
-              args.action_shape, args.device).to(args.device)
+    if use_ram:
+        net = RamDQN(args.state_shape, 
+                     args.action_shape, 
+                     device=args.device).to(args.device)
+    else:
+        net = DQN(*args.state_shape,
+                args.action_shape, args.device).to(args.device)
     optim = torch.optim.Adam(net.parameters(), lr=args.lr)
     # define policy
     policy = TPDQNPolicy(net, optim, args.gamma, args.n_step,
@@ -105,7 +129,7 @@ def test_dqn(args=get_args()):
     # when you have enough RAM
     buffer = TPVectorReplayBuffer(
         args.buffer_size, buffer_num=len(train_envs), ignore_obs_next=True,
-        save_only_last_obs=True, stack_num=args.frames_stack)
+        save_only_last_obs=save_only_last_obs, stack_num=args.frames_stack)
     # collector
     train_collector = Collector(
         policy, 
@@ -181,8 +205,6 @@ def test_dqn(args=get_args()):
         exit(0)
 
     # test train_collector and start filling replay buffer
-    test_collector.collect(n_step=args.batch_size)
-    print("Test collect ok")
     train_collector.collect(n_step=args.batch_size * args.training_num)
     # trainer
     result = offpolicy_trainer(

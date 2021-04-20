@@ -1,8 +1,8 @@
 import torch
 import numpy as np
 from torch import nn
-from typing import Any, Dict, Tuple, Union, Optional, Sequence
-
+from typing import Any, Dict, Tuple, Union, Optional, Sequence, Type
+from tianshou.utils.net.common import MLP
 
 class DQN(nn.Module):
     """Reference: Human-level control through deep reinforcement learning.
@@ -47,6 +47,39 @@ class DQN(nn.Module):
         x = torch.as_tensor(x, device=self.device, dtype=torch.float32)
         return self.net(x), state
 
+ModuleType = Type[nn.Module]
+class RamDQN(nn.Module):
+    
+    def __init__(
+        self,
+        state_shape: Union[int, Sequence[int]],
+        action_shape: Union[int, Sequence[int]] = 0,
+        hidden_sizes: Sequence[int] = (256, 256),
+        activation: Optional[ModuleType] = nn.ReLU,
+        device: Union[str, int, torch.device] = "cpu"
+    ) -> None:
+        super().__init__()
+        self.device = device
+        input_dim = int(np.prod(state_shape))
+        action_dim = int(np.prod(action_shape))
+
+        self.net = MLP(input_dim, action_dim, hidden_sizes, 
+                       norm_layer=None, activation=activation, 
+                       device=device)
+        self.output_dim = self.net.output_dim
+
+    def forward(
+        self,
+        x: Union[np.ndarray, torch.Tensor],
+        state: Optional[Any] = None,
+        info: Dict[str, Any] = {},
+    ) -> Tuple[torch.Tensor, Any]:
+        r"""Mapping: x -> Q(x, \*)."""
+        x = torch.as_tensor(x, device=self.device)
+        if len(x.shape) == 3 and x.shape[1] ==4:
+            # remove stacked obs
+            x = x[:, -1, :]
+        return self.net(x), state
 
 class C51(DQN):
     """Reference: A distributional perspective on reinforcement learning.
