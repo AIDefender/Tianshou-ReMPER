@@ -178,11 +178,15 @@ class FrameStack(gym.Wrapper):
     :param int n_frames: the number of frames to stack.
     """
 
-    def __init__(self, env, n_frames):
+    def __init__(self, env, n_frames, use_ram=False):
         super().__init__(env)
         self.n_frames = n_frames
+        self.use_ram = use_ram
         self.frames = deque([], maxlen=n_frames)
-        shape = (n_frames,) + env.observation_space.shape
+        if self.use_ram:
+            shape = (env.observation_space.shape[0] * n_frames,)
+        else:
+            shape = (n_frames,) + env.observation_space.shape
         self.observation_space = gym.spaces.Box(
             low=np.min(env.observation_space.low),
             high=np.max(env.observation_space.high),
@@ -202,6 +206,8 @@ class FrameStack(gym.Wrapper):
     def _get_ob(self):
         # the original wrapper use `LazyFrames` but since we use np buffer,
         # it has no effect
+        if self.use_ram:
+            return np.concatenate(self.frames)
         return np.stack(self.frames, axis=0)
 
 
@@ -234,4 +240,19 @@ def wrap_deepmind(env_id, episode_life=True, clip_rewards=True,
         env = ClipRewardEnv(env)
     if frame_stack:
         env = FrameStack(env, frame_stack)
+    return env
+
+def wrap_ram(env_id, episode_life=True, clip_rewards=True, frame_stack=4):
+    env = gym.make(env_id)
+    env = NoopResetEnv(env, noop_max=30)
+    # no max skip since we must use ram env with frame skip
+    if episode_life:
+        env = EpisodicLifeEnv(env)
+    if 'FIRE' in env.unwrapped.get_action_meanings():
+        env = FireResetEnv(env)
+    # no warp frame and scale with ram input
+    if clip_rewards:
+        env = ClipRewardEnv(env)
+    if frame_stack:
+        env = FrameStack(env, frame_stack, use_ram=True)
     return env
