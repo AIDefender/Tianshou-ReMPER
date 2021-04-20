@@ -205,7 +205,7 @@ class TPDQNPolicy(DQNPolicy):
             **kwargs, 
         )
         self.tper_weight = tper_weight
-        assert self.tper_weight < 1
+        assert self.tper_weight < 0.5
 
     def process_fn(
         self, batch: Batch, buffer: ReplayBuffer, indice: np.ndarray
@@ -213,6 +213,6 @@ class TPDQNPolicy(DQNPolicy):
         batch = super().process_fn(batch, buffer, indice)
         step = batch.step
         med = np.median(step)
-        weight = np.where(step < med, self.tper_weight, 2 - self.tper_weight)
+        weight = np.where(step < med, self.tper_weight, 1 - self.tper_weight)
         batch.update({"weight": weight})
         return batch
