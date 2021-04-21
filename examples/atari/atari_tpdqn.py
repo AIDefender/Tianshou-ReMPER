@@ -23,6 +23,7 @@ def get_args():
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--eps-test', type=float, default=0.005)
     parser.add_argument('--eps-train', type=float, default=1.)
+    parser.add_argument('--hidden-sizes', type=int, nargs='*', default=[256, 256, 256, 256])
     parser.add_argument('--eps-train-final', type=float, default=0.05)
     parser.add_argument('--buffer-size', type=int, default=100000)
     parser.add_argument('--lr', type=float, default=0.0001)
@@ -47,7 +48,7 @@ def get_args():
     parser.add_argument('--watch', default=False, action='store_true',
                         help='watch the play of pre-trained policy only')
     parser.add_argument('--save-buffer-name', type=str, default=None)
-    parser.add_argument('--tper_weight', type=float, default=0.8)
+    parser.add_argument('--tper_weight', type=float, default=1.0)
     return parser.parse_args()
 
 
@@ -112,6 +113,7 @@ def test_dqn(args=get_args()):
     if use_ram:
         net = RamDQN(args.state_shape, 
                      args.action_shape, 
+                     hidden_sizes=args.hidden_sizes,
                      device=args.device).to(args.device)
     else:
         net = DQN(*args.state_shape,
@@ -146,7 +148,7 @@ def test_dqn(args=get_args()):
     )
     # log
     cur_time = time.strftime('%y-%m-%d-%H-%M-%S', time.localtime())
-    log_path = os.path.join(args.logdir, args.task, 'dqn', "%s-seed%d"%(args.exp, args.seed), cur_time)
+    log_path = os.path.join(args.logdir, args.task, 'tpdqn', "%s-seed%d"%(args.exp, args.seed), cur_time)
     writer = SummaryWriter(log_path)
     writer.add_text("args", str(args))
     logger = BasicLogger(writer)
