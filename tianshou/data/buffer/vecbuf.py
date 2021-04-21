@@ -30,11 +30,11 @@ class VectorReplayBuffer(ReplayBufferManager):
         super().__init__(buffer_list)
 
 class TPVectorReplayBuffer(TPRBManager):
-    def __init__(self, total_size: int, buffer_num: int, **kwargs: Any) -> None:
+    def __init__(self, total_size: int, buffer_num: int, bk_step: bool = False, **kwargs: Any) -> None:
         assert buffer_num > 0
         size = int(np.ceil(total_size / buffer_num))
         buffer_list = [ReplayBuffer(size, **kwargs) for _ in range(buffer_num)]
-        super().__init__(buffer_list)
+        super().__init__(buffer_list, bk_step=bk_step)
 
 class PrioritizedVectorReplayBuffer(PrioritizedReplayBufferManager):
     """PrioritizedVectorReplayBuffer contains n PrioritizedReplayBuffer with same size.

@@ -170,8 +170,11 @@ class ReplayBufferManager(ReplayBuffer):
 
 class TPRBManager(ReplayBufferManager):
 
-    def __init__(self, buffer_list: List[ReplayBuffer]) -> None:
+    def __init__(self, buffer_list: List[ReplayBuffer], bk_step=False) -> None:
         super().__init__(buffer_list)
+        self.bk_step = bk_step
+        self.cur_traj_step = np.array([0] * self.buffer_num)
+
     def __getitem__(self, index: Union[slice, int, List[int], np.ndarray]) -> Batch:
         ori_batch = super().__getitem__(index)
         if isinstance(index, slice):  # change slice to np array
@@ -182,6 +185,26 @@ class TPRBManager(ReplayBufferManager):
             indice = index
         ori_batch.update({"step": self.step[indice]})
         return ori_batch
+
+    def add(self, batch: Batch, buffer_ids: Optional[Union[np.ndarray, List[int]]]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        ptrs, *stats = super().add(batch, buffer_ids=buffer_ids)
+        if self.bk_step:
+            dones = batch["done"]
+            assert len(dones) == self.buffer_num
+            for idx, element in enumerate(zip(ptrs, self.cur_traj_step)):
+                ptr, traj_step = element
+                if ptr >= traj_step:
+                    self._meta[ptr-traj_step:ptr]["step"] += 1
+                else:
+                    # ptr < traj_step
+                    # one part of the traj is on the head of the buffer and the 
+                    # other at the end
+                    assert self._offset[idx] <= ptr < self._offset[idx+1]
+                    self._meta[self._offset[idx]:ptr]["step"] += 1
+                    self._meta[self._offset[idx+1]+ptr-traj_step:self._offset[idx+1]]["step"] += 1
+            self.cur_traj_step = np.where(dones, 0, self.cur_traj_step + 1)
+
+        return ptrs, *stats
 
 class PrioritizedReplayBufferManager(PrioritizedReplayBuffer, ReplayBufferManager):
     """PrioritizedReplayBufferManager contains a list of PrioritizedReplayBuffer with \

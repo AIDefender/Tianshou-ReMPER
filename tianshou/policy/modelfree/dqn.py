@@ -192,7 +192,8 @@ class TPDQNPolicy(DQNPolicy):
         estimation_step: int = 1,
         target_update_freq: int = 0,
         reward_normalization: bool = False,
-        tper_weight: float = 0.8,
+        tper_weight: float = 1.0,
+        bk_step: bool = False,
         **kwargs: Any,
     ) -> None:
         super().__init__(
@@ -205,7 +206,8 @@ class TPDQNPolicy(DQNPolicy):
             **kwargs, 
         )
         self.tper_weight = tper_weight
-        assert self.tper_weight < 1
+        self.bk_step = bk_step
+        assert self.tper_weight <= 1.0
 
     def process_fn(
         self, batch: Batch, buffer: ReplayBuffer, indice: np.ndarray
@@ -213,6 +215,7 @@ class TPDQNPolicy(DQNPolicy):
         batch = super().process_fn(batch, buffer, indice)
         step = batch.step
         med = np.median(step)
-        weight = np.where(step < med, self.tper_weight, 2 - self.tper_weight)
+        cond = step > med if self.bk_step else step < med
+        weight = np.where(cond, self.tper_weight, 2 - self.tper_weight)
         batch.update({"weight": weight})
         return batch

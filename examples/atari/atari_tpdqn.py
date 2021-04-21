@@ -49,6 +49,7 @@ def get_args():
                         help='watch the play of pre-trained policy only')
     parser.add_argument('--save-buffer-name', type=str, default=None)
     parser.add_argument('--tper_weight', type=float, default=1.0)
+    parser.add_argument('--bk_step', action='store_true')
     return parser.parse_args()
 
 
@@ -66,15 +67,16 @@ def make_ram_env_watch(args):
 
 class StepPreprocess():
     
-    def __init__(self, buffer_num) -> None:
+    def __init__(self, buffer_num, bk_step) -> None:
         self.n = buffer_num
         self.cur_traj_step = np.array([0] * buffer_num)
+        self.bk_step = bk_step
     def get_step(self, **kwargs):
         if 'done' in kwargs:
             dones = kwargs["done"]
-            targ = self.cur_traj_step + 1
-            self.cur_traj_step = np.where(dones, 0, targ)
-            return Batch(step=self.cur_traj_step)
+            self.cur_traj_step = np.where(dones, 0, self.cur_traj_step + 1)
+            return Batch(step=np.array([0] * self.n) if \
+                         self.bk_step else self.cur_traj_step)
         return Batch()
 
 def test_dqn(args=get_args()):
@@ -122,7 +124,7 @@ def test_dqn(args=get_args()):
     # define policy
     policy = TPDQNPolicy(net, optim, args.gamma, args.n_step,
                        target_update_freq=args.target_update_freq,
-                       tper_weight=args.tper_weight)
+                       tper_weight=args.tper_weight, bk_step=args.bk_step)
     # load a previous policy
     if args.resume_path:
         policy.load_state_dict(torch.load(args.resume_path, map_location=args.device))
@@ -130,14 +132,15 @@ def test_dqn(args=get_args()):
     # replay buffer: `save_last_obs` and `stack_num` can be removed together
     # when you have enough RAM
     buffer = TPVectorReplayBuffer(
-        args.buffer_size, buffer_num=len(train_envs), ignore_obs_next=True,
+        args.buffer_size, buffer_num=len(train_envs), bk_step=args.bk_step,
+        ignore_obs_next=True,
         save_only_last_obs=save_only_last_obs, stack_num=args.frames_stack)
     # collector
     train_collector = Collector(
         policy, 
         train_envs, 
         buffer, 
-        preprocess_fn=StepPreprocess(len(train_envs)).get_step,
+        preprocess_fn=StepPreprocess(len(train_envs), args.bk_step).get_step,
         exploration_noise=True
     )
     # print(len(test_envs))
