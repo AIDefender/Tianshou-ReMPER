@@ -184,6 +184,7 @@ class TPRBManager(ReplayBufferManager):
         else:
             indice = index
         ori_batch.update({"step": self.step[indice]})
+        ori_batch.update({"done_cnt": self.done_cnt[indice]})
         return ori_batch
 
     def add(self, batch: Batch, buffer_ids: Optional[Union[np.ndarray, List[int]]]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:

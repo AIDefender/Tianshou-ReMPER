@@ -214,6 +214,7 @@ class TPDQNPolicy(DQNPolicy):
     ) -> Batch:
         batch = super().process_fn(batch, buffer, indice)
         step = batch.step
+        done_cnt = batch.done_cnt
         med = np.median(step)
         cond = step > med if self.bk_step else step < med
         weight = np.where(cond, self.tper_weight, 2 - self.tper_weight)

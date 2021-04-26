@@ -70,13 +70,16 @@ class StepPreprocess():
     def __init__(self, buffer_num, bk_step) -> None:
         self.n = buffer_num
         self.cur_traj_step = np.array([0] * buffer_num)
+        self.cur_done_cnt = np.array([0] * buffer_num)
         self.bk_step = bk_step
     def get_step(self, **kwargs):
         if 'done' in kwargs:
             dones = kwargs["done"]
             self.cur_traj_step = np.where(dones, 0, self.cur_traj_step + 1)
+            self.cur_done_cnt = np.where(dones, self.cur_done_cnt + 1, self.cur_done_cnt)
             return Batch(step=np.array([0] * self.n) if \
-                         self.bk_step else self.cur_traj_step)
+                         self.bk_step else self.cur_traj_step,
+                         done_cnt=self.cur_done_cnt)
         return Batch()
 
 def test_dqn(args=get_args()):
