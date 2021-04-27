@@ -48,8 +48,13 @@ def get_args():
     parser.add_argument('--watch', default=False, action='store_true',
                         help='watch the play of pre-trained policy only')
     parser.add_argument('--save-buffer-name', type=str, default=None)
-    parser.add_argument('--tper_weight', type=float, default=1.0)
+    parser.add_argument('--tper_weight', type=float, default=0.6)
     parser.add_argument('--bk_step', action='store_true')
+    parser.add_argument('--reweigh_type', 
+                        choices=['linear', 'adaptive_linear', 'done_cnt_linear', 'hard'], 
+                        default='hard')
+    parser.add_argument("--linear_hp", type=float, nargs='*', default=[0.5, 1.5, 3., -0.3])
+    parser.add_argument('--adaptive_scheme', type=float, nargs="*", default=[0.4, 0.8, 1.2, 1.6, 0, 1e6])
     return parser.parse_args()
 
 
@@ -124,10 +129,21 @@ def test_dqn(args=get_args()):
         net = DQN(*args.state_shape,
                 args.action_shape, args.device).to(args.device)
     optim = torch.optim.Adam(net.parameters(), lr=args.lr)
+    # prepare hyperparameters
+    adaptive_scheme = args.adaptive_scheme
+    adaptive_scheme[4] *= args.update_per_step
+    adaptive_scheme[5] *= args.update_per_step
+    reweigh_hyper = {
+        "hard_weight": args.tper_weight,
+        "linear": args.linear_hp,
+        "adaptive_linear": args.adaptive_scheme,
+    }
     # define policy
     policy = TPDQNPolicy(net, optim, args.gamma, args.n_step,
                        target_update_freq=args.target_update_freq,
-                       tper_weight=args.tper_weight, bk_step=args.bk_step)
+                       bk_step=args.bk_step,
+                       reweigh_type=args.reweigh_type,
+                       reweigh_hyper=reweigh_hyper)
     # load a previous policy
     if args.resume_path:
         policy.load_state_dict(torch.load(args.resume_path, map_location=args.device))

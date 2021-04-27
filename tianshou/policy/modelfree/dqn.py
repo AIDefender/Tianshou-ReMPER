@@ -192,8 +192,9 @@ class TPDQNPolicy(DQNPolicy):
         estimation_step: int = 1,
         target_update_freq: int = 0,
         reward_normalization: bool = False,
-        tper_weight: float = 1.0,
         bk_step: bool = False,
+        reweigh_type: str = "hard",
+        reweigh_hyper = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(
@@ -205,9 +206,16 @@ class TPDQNPolicy(DQNPolicy):
             reward_normalization = reward_normalization,
             **kwargs, 
         )
-        self.tper_weight = tper_weight
+        self.tper_weight = reweigh_hyper["hard_weight"]
         self.bk_step = bk_step
         assert self.tper_weight <= 1.0
+        self.reweigh_type = reweigh_type
+        self.reweigh_hyper = reweigh_hyper
+        if "linear" in self.reweigh_type:
+            self.l, self.h, self.k, self.b = self.reweigh_hyper["linear"]
+        if self.reweigh_type in ["adaptive_linear", "done_cnt_linear"]:
+            self.low_l, self.low_h, self.high_l, self.high_h, self.t_s, self.t_e = \
+                self.reweigh_hyper["adaptive_linear"]
 
     def process_fn(
         self, batch: Batch, buffer: ReplayBuffer, indice: np.ndarray
@@ -215,8 +223,50 @@ class TPDQNPolicy(DQNPolicy):
         batch = super().process_fn(batch, buffer, indice)
         step = batch.step
         done_cnt = batch.done_cnt
-        med = np.median(step)
-        cond = step > med if self.bk_step else step < med
-        weight = np.where(cond, self.tper_weight, 2 - self.tper_weight)
+        rel_step = step / np.max(step)
+        if self.bk_step:
+            # convert bk step to forward 
+            rel_step = 1 - rel_step
+        if self.reweigh_type == "hard":
+            med = np.median(step)
+            cond = step > med if self.bk_step else step < med
+            weight = np.where(cond, self.tper_weight, 2 - self.tper_weight)
+        elif self.reweigh_type == "linear":
+            weight = self._calc_linear_weight(rel_step, self.l, self.h, self.k, self.b)
+        elif self.reweigh_type == 'adaptive_linear':
+            cur_low = np.clip(
+                self.low_l + (self.low_h - self.low_l)/(self.t_e - self.t_s)*(self._iter - self.t_s), 
+                self.low_l, 
+                self.low_h
+            )
+            cur_high = np.clip(
+                self.high_h + (self.high_l - self.high_h)/(self.t_e - self.t_s)*(self._iter - self.t_s), 
+                self.high_l, 
+                self.high_h
+            )
+            weight = self._calc_linear_weight(rel_step, cur_low, cur_high, self.k, self.b)
+        elif self.reweigh_type == 'done_cnt_linear':
+            rel_done_cnt = done_cnt / np.max(done_cnt)
+            # The tajectory is newer with larger done counts, which can be understood as fewer learning steps
+            pseudo_step = 1 - rel_done_cnt
+            cur_low = np.clip(
+                self.low_l + (self.low_h - self.low_l) * pseudo_step,
+                self.low_l, 
+                self.low_h
+            )
+            cur_high = np.clip(
+                self.high_h + (self.high_l - self.high_h) * pseudo_step,
+                self.high_l, 
+                self.high_h
+            )
+            weight = self._calc_linear_weight(rel_step, cur_low, cur_high, self.k, self.b)
         batch.update({"weight": weight})
         return batch
+
+    def _calc_linear_weight(self, rel_step, l, h, k, b):
+        assert np.max(rel_step) <= 1
+        assert np.min(rel_step) >= 0
+        weight = np.clip(k*rel_step+b, l, h)
+        weight = weight / np.sum(weight) * rel_step.shape[0]
+
+        return weight
