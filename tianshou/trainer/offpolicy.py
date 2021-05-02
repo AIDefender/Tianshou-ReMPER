@@ -24,6 +24,7 @@ def offpolicy_trainer(
     test_fn: Optional[Callable[[int, Optional[int]], None]] = None,
     stop_fn: Optional[Callable[[float], bool]] = None,
     save_fn: Optional[Callable[[BasePolicy], None]] = None,
+    save_fn_each_epoch = None,
     reward_metric: Optional[Callable[[np.ndarray], np.ndarray]] = None,
     logger: BaseLogger = LazyLogger(),
     verbose: bool = True,
@@ -150,5 +151,7 @@ def offpolicy_trainer(
                 f" {best_reward:.6f} ± {best_reward_std:.6f} in #{best_epoch}")
         if stop_fn and stop_fn(best_reward):
             break
+        if save_fn_each_epoch:
+            save_fn_each_epoch(policy, epoch)
     return gather_info(start_time, train_collector, test_collector,
                        best_reward, best_reward_std)
