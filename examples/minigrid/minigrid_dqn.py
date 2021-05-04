@@ -52,8 +52,7 @@ def get_args():
 
 
 def make_minigrid_env(args):
-    # env = gym.make(args.task)
-    env = FourRoomsEnv(agent_pos=(1,1), goal_pos=(17,17))
+    env = gym.make(args.task)
     env = RGBImgPartialObsWrapper(env)
     env = ImgObsWrapper(env)
 
@@ -110,7 +109,6 @@ def test_dqn(args=get_args()):
     def save_fn_each_epoch(policy, epoch):
         torch.save(policy.state_dict(), os.path.join(log_path, 'policy-%d.pth'%epoch))
 
-
     def stop_fn(mean_rewards):
         # if env.env.spec.reward_threshold:
         #     return mean_rewards >= env.spec.reward_threshold
@@ -128,6 +126,8 @@ def test_dqn(args=get_args()):
         else:
             eps = args.eps_train_final
         policy.set_eps(eps)
+        if env_step % 1e4 == 0 and env_step != 0:
+            save_fn_each_epoch(policy, env_step / 1e4)
         logger.write('train/eps', env_step, eps)
 
     def test_fn(epoch, env_step):
