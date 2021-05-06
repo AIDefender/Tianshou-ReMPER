@@ -17,7 +17,7 @@ from atari_network import DQN
 import gym_minigrid
 from gym_minigrid.wrappers import *
 import gym
-from gym_minigrid.envs.fourrooms import FourRoomsEnv
+from fourrooms import FourRoomsEnv
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -48,12 +48,16 @@ def get_args():
     parser.add_argument('--watch', default=False, action='store_true',
                         help='watch the play of pre-trained policy only')
     parser.add_argument('--save-buffer-name', type=str, default=None)
+    parser.add_argument('--exp', type=str, default="default")
     return parser.parse_args()
 
 
 def make_minigrid_env(args):
-    env = gym.make(args.task)
-    env = RGBImgPartialObsWrapper(env)
+    if args.task == 'MiniGrid-FourRooms-v0':
+        env = FourRoomsEnv(agent_pos=(1,1), goal_pos=(17, 17))
+    else:
+        env = gym.make(args.task)
+    env = RGBImgObsWrapper(env)
     env = ImgObsWrapper(env)
 
     return env
@@ -98,7 +102,7 @@ def test_dqn(args=get_args()):
     test_collector = Collector(policy, test_envs, exploration_noise=True)
     # log
     cur_time = time.strftime('%y-%m-%d-%H-%M-%S', time.localtime())
-    log_path = os.path.join(args.logdir, args.task, 'dqn', cur_time)
+    log_path = os.path.join(args.logdir, args.task, 'dqn', args.exp, cur_time)
     writer = SummaryWriter(log_path)
     writer.add_text("args", str(args))
     logger = BasicLogger(writer)
@@ -167,7 +171,7 @@ def test_dqn(args=get_args()):
     result = offpolicy_trainer(
         policy, train_collector, test_collector, args.epoch,
         args.step_per_epoch, args.step_per_collect, args.test_num,
-        args.batch_size, train_fn=train_fn, test_fn=test_fn, save_fn_each_epoch=save_fn_each_epoch,
+        args.batch_size, train_fn=train_fn, test_fn=test_fn,
         stop_fn=stop_fn, save_fn=save_fn, logger=logger,
         update_per_step=args.update_per_step, test_in_train=False)
 
