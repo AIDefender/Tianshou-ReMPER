@@ -49,12 +49,16 @@ def get_args():
                         help='watch the play of pre-trained policy only')
     parser.add_argument('--save-buffer-name', type=str, default=None)
     parser.add_argument('--exp', type=str, default="default")
+    parser.add_argument('--grid-size', type=int, default=19)
+    parser.add_argument('--agent-pos', type=int, nargs='*', default=(1,1))
+    parser.add_argument('--goal-pos', type=int, nargs='*', default=(17,17))
+    parser.add_argument('--U-shape', action='store_true')
     return parser.parse_args()
 
 
 def make_minigrid_env(args):
     if args.task == 'MiniGrid-FourRooms-v0':
-        env = FourRoomsEnv(agent_pos=(1,1), goal_pos=(17, 17))
+        env = FourRoomsEnv(agent_pos=args.agent_pos, goal_pos=args.goal_pos, U_shape=args.U_shape, grid_size=args.grid_size)
     else:
         env = gym.make(args.task)
     env = RGBImgObsWrapper(env)
