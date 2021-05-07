@@ -8,6 +8,7 @@ import torch
 from tianshou.policy import DQNPolicy
 import pickle
 import numpy as np
+from fourrooms import FourRoomsEnv
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -30,18 +31,22 @@ def get_args():
                         help='watch the play of pre-trained policy only')
     parser.add_argument('--save-buffer-name', type=str, default=None)
     parser.add_argument('-n', type=int)
+    parser.add_argument('--env', type=str, default="MiniGrid-Empty-8x8-v0")
     return parser.parse_args()
 
-def make_minigrid_env():
-    env = gym.make("MiniGrid-Empty-8x8-v0")
-    env = RGBImgPartialObsWrapper(env)
+def make_minigrid_env(args):
+    if 'FourRooms' in args.env:
+        env = FourRoomsEnv(agent_pos=(1,1), goal_pos=(1,7), grid_size=9, U_shape=True)
+    else:
+        env = gym.make("MiniGrid-Empty-8x8-v0")
+    env = RGBImgObsWrapper(env)
     env = ImgObsWrapper(env)
 
     return env
 
 def eval_minigrid(args):
     device = 'cuda'
-    env = make_minigrid_env()
+    env = make_minigrid_env(args)
     state_shape = env.observation_space.shape
     action_shape = env.env.action_space.n
     net = DQN(state_shape[2], state_shape[0], state_shape[1],
@@ -75,10 +80,10 @@ def eval_minigrid(args):
             break
         i += 1
 
-    with open("log/MiniGrid-Empty-8x8-v0/dqn/Q_table_onpolicy%d.txt"%args.n, 'w') as f:
+    with open(os.path.join(args.resume_path, "Q_table%d.txt"%args.n), 'w') as f:
         for value, key in zip(Q_table.values(), Q_table.keys()):
             print(key, ":", value, file=f)
-    with open("log/MiniGrid-Empty-8x8-v0/dqn/Q_table_onpolicypickle%d"%args.n, 'wb') as f:
+    with open(os.path.join(args.resume_path, "Q_tablepickle%d"%args.n), 'wb') as f:
         pickle.dump(Q_table, f)
 
 args = get_args()

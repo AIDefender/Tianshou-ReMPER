@@ -116,6 +116,7 @@ def test_dqn(args=get_args()):
 
     def save_fn_each_epoch(policy, epoch):
         torch.save(policy.state_dict(), os.path.join(log_path, 'policy-%d.pth'%epoch))
+    save_fn_each_epoch = None
 
     def stop_fn(mean_rewards):
         # if env.env.spec.reward_threshold:
@@ -134,7 +135,7 @@ def test_dqn(args=get_args()):
         else:
             eps = args.eps_train_final
         policy.set_eps(eps)
-        if env_step % 1e4 == 0 and env_step != 0:
+        if env_step % 1e4 == 0 and env_step != 0 and save_fn_each_epoch is not None:
             save_fn_each_epoch(policy, env_step / 1e4)
         logger.write('train/eps', env_step, eps)
 

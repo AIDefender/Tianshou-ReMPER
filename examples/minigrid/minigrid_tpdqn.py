@@ -17,7 +17,7 @@ from atari_network import DQN, RamDQN
 import gym_minigrid
 from gym_minigrid.wrappers import *
 import gym
-from gym_minigrid.envs.fourrooms import FourRoomsEnv
+from fourrooms import FourRoomsEnv
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -57,15 +57,21 @@ def get_args():
                         default='hard')
     parser.add_argument("--linear_hp", type=float, nargs='*', default=[0.5, 1.5, 3., -0.3])
     parser.add_argument('--adaptive_scheme', type=float, nargs="*", default=[0.4, 0.8, 1.2, 1.6, 0, 1e6])
+    parser.add_argument('--grid-size', type=int, default=19)
+    parser.add_argument('--agent-pos', type=int, nargs='*', default=(1,1))
+    parser.add_argument('--goal-pos', type=int, nargs='*', default=(17,17))
+    parser.add_argument('--U-shape', action='store_true')
     return parser.parse_args()
 
 def make_minigrid_env(args):
-    env = gym.make(args.task)
-    env = RGBImgPartialObsWrapper(env)
+    if args.task == 'MiniGrid-FourRooms-v0':
+        env = FourRoomsEnv(agent_pos=args.agent_pos, goal_pos=args.goal_pos, U_shape=args.U_shape, grid_size=args.grid_size)
+    else:
+        env = gym.make(args.task)
+    env = RGBImgObsWrapper(env)
     env = ImgObsWrapper(env)
 
     return env
-
 make_minigrid_env_watch = make_minigrid_env
 
 
@@ -167,6 +173,8 @@ def test_dqn(args=get_args()):
 
     def save_fn_each_epoch(policy, epoch):
         torch.save(policy.state_dict(), os.path.join(log_path, 'policy-%d.pth'%epoch))
+    save_fn_each_epoch = None
+        
     def train_fn(epoch, env_step):
         # nature DQN setting, linear decay in the first 1M steps
         if env_step <= 1e6:
@@ -175,7 +183,7 @@ def test_dqn(args=get_args()):
         else:
             eps = args.eps_train_final
         policy.set_eps(eps)
-        if env_step % 1e4 == 0 and env_step != 0:
+        if env_step % 1e4 == 0 and env_step != 0 and save_fn_each_epoch is not None:
             save_fn_each_epoch(policy, env_step / 1e4)
         logger.write('train/eps', env_step, eps)
 
