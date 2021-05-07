@@ -1,4 +1,5 @@
 import os
+import time
 import gym
 import torch
 import pprint
@@ -6,11 +7,12 @@ import argparse
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 
-from tianshou.policy import DQNPolicy
+from tianshou.data.batch import Batch
+from tianshou.policy import TPDQNPolicy
 from tianshou.utils import BasicLogger
 from tianshou.utils.net.common import Net
 from tianshou.trainer import offpolicy_trainer
-from tianshou.data import Collector, VectorReplayBuffer
+from tianshou.data import Collector, TPVectorReplayBuffer
 from tianshou.env import DummyVectorEnv, SubprocVectorEnv
 
 
@@ -44,8 +46,32 @@ def get_args():
     parser.add_argument(
         '--device', type=str,
         default='cuda' if torch.cuda.is_available() else 'cpu')
+    parser.add_argument('--tper_weight', type=float, default=0.6)
+    parser.add_argument('--bk_step', action='store_true')
+    parser.add_argument('--reweigh_type', 
+                        choices=['linear', 'adaptive_linear', 'done_cnt_linear', 'hard'], 
+                        default='hard')
+    parser.add_argument("--linear_hp", type=float, nargs='*', default=[0.5, 1.5, 3., -0.3])
+    parser.add_argument('--adaptive_scheme', type=float, nargs="*", default=[0.4, 0.8, 1.2, 1.6, 0, 1e6])
+    parser.add_argument('--exp', type=str, default='default')
     return parser.parse_args()
 
+class StepPreprocess():
+    
+    def __init__(self, buffer_num, bk_step) -> None:
+        self.n = buffer_num
+        self.cur_traj_step = np.array([0] * buffer_num)
+        self.cur_done_cnt = np.array([0] * buffer_num)
+        self.bk_step = bk_step
+    def get_step(self, **kwargs):
+        if 'done' in kwargs:
+            dones = kwargs["done"]
+            self.cur_traj_step = np.where(dones, 0, self.cur_traj_step + 1)
+            self.cur_done_cnt = np.where(dones, self.cur_done_cnt + 1, self.cur_done_cnt)
+            return Batch(step=np.array([0] * self.n) if \
+                         self.bk_step else self.cur_traj_step,
+                         done_cnt=self.cur_done_cnt)
+        return Batch()
 
 def test_dqn(args=get_args()):
     env = gym.make(args.task)
@@ -70,19 +96,34 @@ def test_dqn(args=get_args()):
               hidden_sizes=args.hidden_sizes, device=args.device,
               dueling_param=(Q_param, V_param)).to(args.device)
     optim = torch.optim.Adam(net.parameters(), lr=args.lr)
-    policy = DQNPolicy(
+
+    # prepare hyperparameters
+    adaptive_scheme = args.adaptive_scheme
+    adaptive_scheme[4] *= args.update_per_step
+    adaptive_scheme[5] *= args.update_per_step
+    reweigh_hyper = {
+        "hard_weight": args.tper_weight,
+        "linear": args.linear_hp,
+        "adaptive_linear": args.adaptive_scheme,
+    }
+    policy = TPDQNPolicy(
         net, optim, args.gamma, args.n_step,
-        target_update_freq=args.target_update_freq)
+        target_update_freq=args.target_update_freq,
+        bk_step=args.bk_step,
+        reweigh_type=args.reweigh_type,
+        reweigh_hyper=reweigh_hyper)
     # collector
     train_collector = Collector(
         policy, train_envs,
-        VectorReplayBuffer(args.buffer_size, len(train_envs)),
+        TPVectorReplayBuffer(args.buffer_size, len(train_envs)),
+        preprocess_fn=StepPreprocess(len(train_envs), args.bk_step).get_step,
         exploration_noise=True)
     test_collector = Collector(policy, test_envs, exploration_noise=True)
     # policy.set_eps(1)
     train_collector.collect(n_step=args.batch_size * args.training_num)
     # log
-    log_path = os.path.join(args.logdir, args.task, 'dqn')
+    cur_time = time.strftime('%y-%m-%d-%H-%M-%S', time.localtime())
+    log_path = os.path.join(args.logdir, args.task, 'tpdqn', "%s-seed%d"%(args.exp, args.seed), cur_time)
     writer = SummaryWriter(log_path)
     logger = BasicLogger(writer)
 
