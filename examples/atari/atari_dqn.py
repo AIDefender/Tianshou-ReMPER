@@ -10,7 +10,7 @@ from tianshou.policy import DQNPolicy
 from tianshou.utils import BasicLogger
 from tianshou.env import SubprocVectorEnv
 from tianshou.trainer import offpolicy_trainer
-from tianshou.data import Collector, VectorReplayBuffer
+from tianshou.data import Collector, VectorReplayBuffer, PrioritizedVectorReplayBuffer
 
 from atari_network import DQN
 from atari_wrapper import wrap_deepmind
@@ -45,6 +45,7 @@ def get_args():
     parser.add_argument('--watch', default=False, action='store_true',
                         help='watch the play of pre-trained policy only')
     parser.add_argument('--save-buffer-name', type=str, default=None)
+    parser.add_argument('--per', action='store_true')
     return parser.parse_args()
 
 
@@ -87,9 +88,15 @@ def test_dqn(args=get_args()):
         print("Loaded agent from: ", args.resume_path)
     # replay buffer: `save_last_obs` and `stack_num` can be removed together
     # when you have enough RAM
-    buffer = VectorReplayBuffer(
-        args.buffer_size, buffer_num=len(train_envs), ignore_obs_next=True,
-        save_only_last_obs=True, stack_num=args.frames_stack)
+    if args.per:
+        buffer = PrioritizedVectorReplayBuffer(
+            args.buffer_size, buffer_num=len(train_envs), ignore_obs_next=True,
+            save_only_last_obs=True, stack_num=args.frames_stack, 
+            alpha=0.5, beta=0.5)
+    else:
+        buffer = VectorReplayBuffer(
+            args.buffer_size, buffer_num=len(train_envs), ignore_obs_next=True,
+            save_only_last_obs=True, stack_num=args.frames_stack, )
     # collector
     train_collector = Collector(policy, train_envs, buffer, exploration_noise=True)
     test_collector = Collector(policy, test_envs, exploration_noise=True)
