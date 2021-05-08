@@ -57,9 +57,12 @@ def eval_minigrid(args):
                        target_update_freq=args.target_update_freq)
     # load a previous policy
     if args.resume_path:
-        path = os.path.join(args.resume_path, "policy-%d.pth"%args.n)
-        policy.load_state_dict(torch.load(path, map_location=device))
-        print("Loaded agent from: ", path)
+        subdir = os.listdir(args.resume_path)
+        for i in subdir:
+            if not i.startswith("Q"):
+                path = os.path.join(args.resume_path, i, "policy-%d.pth"%args.n)
+                policy.load_state_dict(torch.load(path, map_location=device))
+                print("Loaded agent from: ", path)
 
     env.reset()
     action = None
@@ -74,9 +77,8 @@ def eval_minigrid(args):
         value = net(state.reshape(1, state_shape[0], state_shape[1], state_shape[2]))[0].detach().cpu().numpy()
         # action = np.argmax(value)
         Q_table[pos] = value
-        print(i, pos, value)
         # if done or i > 10000:
-        if i > 3000:
+        if i > 10000:
             break
         i += 1
 
