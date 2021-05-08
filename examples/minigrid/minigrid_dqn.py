@@ -23,7 +23,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--task', type=str, default='PongNoFrameskip-v4')
     parser.add_argument('--seed', type=int, default=0)
-    parser.add_argument('--eps-test', type=float, default=0.005)
+    parser.add_argument('--eps-test', type=float, default=0.)
     parser.add_argument('--eps-train', type=float, default=1.)
     parser.add_argument('--eps-train-final', type=float, default=0.05)
     parser.add_argument('--buffer-size', type=int, default=100000)
@@ -53,6 +53,7 @@ def get_args():
     parser.add_argument('--agent-pos', type=int, nargs='*', default=(1,1))
     parser.add_argument('--goal-pos', type=int, nargs='*', default=(17,17))
     parser.add_argument('--U-shape', action='store_true')
+    parser.add_argument('--dense-save-ckpt', action='store_true')
     return parser.parse_args()
 
 
@@ -106,7 +107,7 @@ def test_dqn(args=get_args()):
     test_collector = Collector(policy, test_envs, exploration_noise=True)
     # log
     cur_time = time.strftime('%y-%m-%d-%H-%M-%S', time.localtime())
-    log_path = os.path.join(args.logdir, args.task, 'dqn', args.exp, cur_time)
+    log_path = os.path.join(args.logdir, args.task, 'dqn', args.exp, str(args.seed), cur_time)
     writer = SummaryWriter(log_path)
     writer.add_text("args", str(args))
     logger = BasicLogger(writer)
@@ -116,7 +117,6 @@ def test_dqn(args=get_args()):
 
     def save_fn_each_epoch(policy, epoch):
         torch.save(policy.state_dict(), os.path.join(log_path, 'policy-%d.pth'%epoch))
-    save_fn_each_epoch = None
 
     def stop_fn(mean_rewards):
         # if env.env.spec.reward_threshold:
@@ -135,7 +135,7 @@ def test_dqn(args=get_args()):
         else:
             eps = args.eps_train_final
         policy.set_eps(eps)
-        if env_step % 1e4 == 0 and env_step != 0 and save_fn_each_epoch is not None:
+        if env_step % 1e4 == 0 and env_step != 0 and args.dense_save_ckpt:
             save_fn_each_epoch(policy, env_step / 1e4)
         logger.write('train/eps', env_step, eps)
 
