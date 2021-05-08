@@ -104,7 +104,8 @@ def test_dqn(args=get_args()):
     test_collector = Collector(policy, test_envs, exploration_noise=True)
     # log
     cur_time = time.strftime('%y-%m-%d-%H-%M-%S', time.localtime())
-    log_path = os.path.join(args.logdir, args.task, 'dqn', cur_time)
+    algo = 'per' if args.per else 'dqn'
+    log_path = os.path.join(args.logdir, args.task, algo, "%s-seed%d"%(args.exp, args.seed), cur_time)
     writer = SummaryWriter(log_path)
     writer.add_text("args", str(args))
     logger = BasicLogger(writer)
