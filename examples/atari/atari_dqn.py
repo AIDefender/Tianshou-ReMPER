@@ -46,6 +46,8 @@ def get_args():
                         help='watch the play of pre-trained policy only')
     parser.add_argument('--save-buffer-name', type=str, default=None)
     parser.add_argument('--per', action='store_true')
+    parser.add_argument('--alpha', type=float, default=0.7)
+    parser.add_argument('--beta', type=float, default=0.5)
     return parser.parse_args()
 
 
@@ -92,7 +94,7 @@ def test_dqn(args=get_args()):
         buffer = PrioritizedVectorReplayBuffer(
             args.buffer_size, buffer_num=len(train_envs), ignore_obs_next=True,
             save_only_last_obs=True, stack_num=args.frames_stack, 
-            alpha=0.5, beta=0.5)
+            alpha=args.alpha, beta=args.beta)
     else:
         buffer = VectorReplayBuffer(
             args.buffer_size, buffer_num=len(train_envs), ignore_obs_next=True,

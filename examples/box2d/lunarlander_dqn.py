@@ -90,8 +90,7 @@ def test_dqn(args=get_args()):
         torch.save(policy.state_dict(), os.path.join(log_path, 'policy.pth'))
 
     def stop_fn(mean_rewards):
-        # return mean_rewards >= env.spec.reward_threshold
-        return False
+        return mean_rewards >= env.spec.reward_threshold
 
     def train_fn(epoch, env_step):  # exp decay
         eps = max(args.eps_train * (1 - 5e-6) ** env_step, args.eps_test)

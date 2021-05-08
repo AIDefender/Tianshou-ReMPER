@@ -38,7 +38,7 @@ def get_args():
     parser.add_argument('--training-num', type=int, default=10)
     parser.add_argument('--test-num', type=int, default=50)
     parser.add_argument('--logdir', type=str, default='log')
-    parser.add_argument('--exp', type=str, default='exp')
+    parser.add_argument('--exp', type=str, default='default')
     parser.add_argument('--render', type=float, default=0.)
     parser.add_argument(
         '--device', type=str,

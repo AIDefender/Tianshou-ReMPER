@@ -223,7 +223,7 @@ class TPDQNPolicy(DQNPolicy):
         batch = super().process_fn(batch, buffer, indice)
         step = batch.step
         done_cnt = batch.done_cnt
-        rel_step = step / np.max(step)
+        rel_step = step / np.max(step) if step.any() else np.zeros_like(step)
         if self.bk_step:
             # convert bk step to forward 
             rel_step = 1 - rel_step
