@@ -48,6 +48,7 @@ def get_args():
     parser.add_argument('--per', action='store_true')
     parser.add_argument('--alpha', type=float, default=0.7)
     parser.add_argument('--beta', type=float, default=0.5)
+    parser.add_argument('--exp', type=str, default='default')
     return parser.parse_args()
 
 
