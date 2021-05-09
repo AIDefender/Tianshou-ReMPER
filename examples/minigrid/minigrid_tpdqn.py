@@ -18,6 +18,7 @@ import gym_minigrid
 from gym_minigrid.wrappers import *
 import gym
 from fourrooms import FourRoomsEnv
+from maze import MazeEnv
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -67,6 +68,8 @@ def get_args():
 def make_minigrid_env(args):
     if args.task == 'MiniGrid-FourRooms-v0':
         env = FourRoomsEnv(agent_pos=args.agent_pos, goal_pos=args.goal_pos, U_shape=args.U_shape, grid_size=args.grid_size)
+    elif args.task == 'MiniGrid-Maze-v0':
+        env = MazeEnv(agent_pos=(1,1), goal_pos=(1,7), grid_size=9)
     else:
         env = gym.make(args.task)
     env = RGBImgObsWrapper(env)
