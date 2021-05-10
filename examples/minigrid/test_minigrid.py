@@ -9,6 +9,7 @@ from tianshou.policy import DQNPolicy
 import pickle
 import numpy as np
 from fourrooms import FourRoomsEnv
+from maze import MazeEnv
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -37,6 +38,8 @@ def get_args():
 def make_minigrid_env(args):
     if 'FourRooms' in args.env:
         env = FourRoomsEnv(agent_pos=(1,1), goal_pos=(1,7), grid_size=9, U_shape=True)
+    elif 'Maze' in args.env:
+        env = MazeEnv(agent_pos=(1,1), goal_pos=(1,7), grid_size=9)
     else:
         env = gym.make("MiniGrid-Empty-8x8-v0")
     env = RGBImgObsWrapper(env)
