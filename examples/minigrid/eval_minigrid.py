@@ -42,7 +42,7 @@ for seed in os.listdir(args.resume_path):
     for i in range(1, 8):
         this_loss = []
         for j in range(1, 8):
-            real_V = 0.99 ** ((6-i) + (6-j))
+            real_V = 0.99 ** ((7-i) + (7-j))
             try:
                 loss = abs(V_table[(i,j)] - real_V)
             except KeyError:
@@ -60,7 +60,7 @@ mean_V_loss = np.average(all_V_loss, axis=0)
 fig, ax = plt.subplots()
 
 # frame = sns.heatmap(mean_V_loss, cmap="YlGnBu", vmin=0.1, vmax=0.5)
-frame = sns.heatmap(mean_V_loss, cmap = 'rocket_r', vmin=0.15, vmax=0.7, mask=get_mask(), ax=ax)
+frame = sns.heatmap(mean_V_loss, cmap = 'rocket_r', vmin=0.1, vmax=0.6, mask=get_mask(), ax=ax)
 frame.axes.get_xaxis().set_visible(False)
 frame.axes.get_yaxis().set_visible(False)
 frame.set_facecolor("black")

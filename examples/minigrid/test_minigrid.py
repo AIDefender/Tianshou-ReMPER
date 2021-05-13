@@ -72,18 +72,19 @@ def eval_minigrid(args):
     Q_table = {}
     i = 0
     while True:
+        i += 1
+        if i > 10000:
+            break
         if action is None:
             action = 4
         action = np.random.randint(3)
         state, reward, done, _ = env.step(action)
         pos = tuple(env.agent_pos)
+        if pos in Q_table.keys():
+            continue
         value = net(state.reshape(1, state_shape[0], state_shape[1], state_shape[2]))[0].detach().cpu().numpy()
         # action = np.argmax(value)
         Q_table[pos] = value
-        # if done or i > 10000:
-        if i > 10000:
-            break
-        i += 1
 
     with open(os.path.join(args.resume_path, "Q_table%d.txt"%args.n), 'w') as f:
         for value, key in zip(Q_table.values(), Q_table.keys()):

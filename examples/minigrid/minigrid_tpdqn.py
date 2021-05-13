@@ -54,13 +54,13 @@ def get_args():
     parser.add_argument('--tper_weight', type=float, default=0.6)
     parser.add_argument('--bk_step', action='store_true')
     parser.add_argument('--reweigh_type', 
-                        choices=['linear', 'adaptive_linear', 'done_cnt_linear', 'hard'], 
+                        choices=['linear', 'adaptive_linear', 'done_cnt_linear', 'hard', 'oracle'], 
                         default='hard')
     parser.add_argument("--linear_hp", type=float, nargs='*', default=[0.5, 1.5, 3., -0.3])
     parser.add_argument('--adaptive_scheme', type=float, nargs="*", default=[0.4, 0.8, 1.2, 1.6, 0, 1e6])
-    parser.add_argument('--grid-size', type=int, default=19)
+    parser.add_argument('--grid-size', type=int, default=9)
     parser.add_argument('--agent-pos', type=int, nargs='*', default=(1,1))
-    parser.add_argument('--goal-pos', type=int, nargs='*', default=(17,17))
+    parser.add_argument('--goal-pos', type=int, nargs='*', default=(1,7))
     parser.add_argument('--U-shape', action='store_true')
     parser.add_argument('--dense-save-ckpt', action='store_true')
     return parser.parse_args()
@@ -78,6 +78,12 @@ def make_minigrid_env(args):
     return env
 make_minigrid_env_watch = make_minigrid_env
 
+def minigrid_env_for_oracle(agent_pos):
+    env = FourRoomsEnv(agent_pos=agent_pos, goal_pos=(1,7), U_shape=True, grid_size=9)
+    env = RGBImgObsWrapper(env)
+    env = ImgObsWrapper(env)
+
+    return env
 
 class StepPreprocess():
     
@@ -131,7 +137,8 @@ def test_dqn(args=get_args()):
                        target_update_freq=args.target_update_freq,
                        bk_step=args.bk_step,
                        reweigh_type=args.reweigh_type,
-                       reweigh_hyper=reweigh_hyper)
+                       reweigh_hyper=reweigh_hyper,
+                       env_fn=minigrid_env_for_oracle)
     # load a previous policy
     if args.resume_path:
         policy.load_state_dict(torch.load(args.resume_path, map_location=args.device))
@@ -140,7 +147,6 @@ def test_dqn(args=get_args()):
     # when you have enough RAM
     buffer = TPVectorReplayBuffer(
         args.buffer_size, buffer_num=len(train_envs), bk_step=args.bk_step,
-        ignore_obs_next=True,
     )
     # collector
     train_collector = Collector(
