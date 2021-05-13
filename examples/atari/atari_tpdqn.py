@@ -51,10 +51,10 @@ def get_args():
     parser.add_argument('--tper_weight', type=float, default=0.6)
     parser.add_argument('--bk_step', action='store_true')
     parser.add_argument('--reweigh_type', 
-                        choices=['linear', 'adaptive_linear', 'done_cnt_linear', 'hard'], 
+                        choices=['linear', 'adaptive_linear', 'done_cnt_linear', 'hard', 'oracle'], 
                         default='hard')
     parser.add_argument("--linear_hp", type=float, nargs='*', default=[0.5, 1.5, 3., -0.3])
-    parser.add_argument('--adaptive_scheme', type=float, nargs="*", default=[0.4, 0.8, 1.2, 1.6, 0, 1e6])
+    parser.add_argument('--adaptive_scheme', type=float, nargs="*", default=[0.4, 0.8, 1.2, 1.6, 5e6, 1e7])
     return parser.parse_args()
 
 

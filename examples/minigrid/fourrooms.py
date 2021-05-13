@@ -74,6 +74,7 @@ class FourRoomsEnv(MiniGridEnv):
 
     def step(self, action):
         obs, reward, done, info = MiniGridEnv.step(self, action)
+        info.update({"agent_pos":self.agent_pos})
         return obs, reward, done, info
 
 register(

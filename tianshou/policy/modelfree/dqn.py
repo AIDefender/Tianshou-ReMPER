@@ -195,6 +195,7 @@ class TPDQNPolicy(DQNPolicy):
         bk_step: bool = False,
         reweigh_type: str = "hard",
         reweigh_hyper = None,
+        env_fn = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(
@@ -216,6 +217,8 @@ class TPDQNPolicy(DQNPolicy):
         if self.reweigh_type in ["adaptive_linear", "done_cnt_linear"]:
             self.low_l, self.low_h, self.high_l, self.high_h, self.t_s, self.t_e = \
                 self.reweigh_hyper["adaptive_linear"]
+        
+        self.env_fn = env_fn
 
     def process_fn(
         self, batch: Batch, buffer: ReplayBuffer, indice: np.ndarray
@@ -260,8 +263,44 @@ class TPDQNPolicy(DQNPolicy):
                 self.high_h
             )
             weight = self._calc_linear_weight(rel_step, cur_low, cur_high, self.k, self.b)
+        elif self.reweigh_type == 'oracle':
+            info = batch.info
+            # assert "agent_pos" in info.keys()
+            agent_pos = info["agent_pos"]
+            reward = batch.rew
+            done = batch.done
+            action = batch.act
+            # print(obs_next, reward, done)
+
+            next_agent_pos = self._get_next_agent_pos(agent_pos, action)
+            next_V = self._get_oracle_V(next_agent_pos)
+            Qstar = reward + (1-done) * next_V
+            with torch.no_grad():
+                Qs = self.forward(batch).logits.detach().cpu().numpy()
+            Qk = []
+            for Q, a in zip(Qs, action):
+                Qk.append(Q[a])
+            weight = np.exp(-np.abs(Qk-Qstar))
+            assert weight.shape[0] == rel_step.shape[0]
+            weight = weight / np.sum(weight) * rel_step.shape[0]
         batch.update({"weight": weight})
         return batch
+
+    def _get_oracle_V(self, next_agent_pos):
+        oracle_V = []
+        for pos in next_agent_pos:
+            man_dist = 14 - pos[0] - pos[1]
+            V = 0.99 ** man_dist
+            oracle_V.append(V)
+        return oracle_V
+    def _get_next_agent_pos(self, agent_pos, action):
+        next_agent_pos = []
+        for (pos, act) in zip(agent_pos, action):
+            env = self.env_fn(pos)
+            env.reset()
+            env.step(act)
+            next_agent_pos.append(deepcopy(env.agent_pos))
+        return next_agent_pos
 
     def _calc_linear_weight(self, rel_step, l, h, k, b):
         assert np.max(rel_step) <= 1
