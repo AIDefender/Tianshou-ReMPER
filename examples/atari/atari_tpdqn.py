@@ -57,6 +57,8 @@ def get_args():
     parser.add_argument("--linear_hp", type=float, nargs='*', default=[0.5, 1.5, 3., -0.3])
     parser.add_argument('--adaptive_scheme', type=float, nargs="*", default=[0.4, 0.8, 1.2, 1.6, 5e6, 1e7])
     parser.add_argument('--lfiw', action='store_true')
+    parser.add_argument('--lfiw_temp', type=float, default=0.03)
+    parser.add_argument('--lfiw_loss_coeff', type=float, default=0.03)
     return parser.parse_args()
 
 
@@ -149,7 +151,9 @@ def test_dqn(args=get_args()):
                         target_update_freq=args.target_update_freq,
                         bk_step=args.bk_step,
                         reweigh_type=args.reweigh_type,
-                        reweigh_hyper=reweigh_hyper)
+                        reweigh_hyper=reweigh_hyper,
+                        opd_temperature=args.lfiw_temp,
+                        opd_loss_coeff=args.lfiw_loss_coeff)
     else:
         policy = TPDQNPolicy(net, optim, args.gamma, args.n_step,
                         target_update_freq=args.target_update_freq,

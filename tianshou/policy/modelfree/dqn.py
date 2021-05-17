@@ -324,8 +324,8 @@ class LfiwTPDQNPolicy(TPDQNPolicy):
         reweigh_type: str = "hard",
         reweigh_hyper = None,
         env_fn = None,
-        opd_loss_coeff = 0.1,
-        opd_temperature = 7.5,
+        opd_loss_coeff = 0.03,
+        opd_temperature = 0.03,
         **kwargs: Any,
     ) -> None:
         super().__init__(
@@ -411,7 +411,7 @@ class LfiwTPDQNPolicy(TPDQNPolicy):
             # the degree of on-policiess
             opd = self(batch, output_dqn=False, output_opd=True).logits
             opd = opd[np.arange(len(opd)), batch.act]
-            opd_weights = torch.sigmoid(opd / self.opd_temperature)
+            opd_weights = torch.sigmoid(opd * self.opd_temperature)
             opd_weights = opd_weights / torch.sum(opd_weights) * len(opd)
         opd_weights = opd_weights.detach().cpu().numpy()
         ori_weight = batch.pop("weight", 1.0)
