@@ -11,7 +11,7 @@ from tianshou.policy import TPDQNPolicy, LfiwTPDQNPolicy
 from tianshou.utils import BasicLogger
 from tianshou.env import SubprocVectorEnv
 from tianshou.trainer import offpolicy_trainer
-from tianshou.data import Collector, TPVectorReplayBuffer
+from tianshou.data import Collector, TPVectorReplayBuffer, TPDoubleVectorReplayBuffer
 
 from atari_network import DQN, RamDQN, LfiwDQN
 from atari_wrapper import wrap_deepmind, wrap_ram
@@ -26,6 +26,7 @@ def get_args():
     parser.add_argument('--hidden-sizes', type=int, nargs='*', default=[256, 256, 256, 256])
     parser.add_argument('--eps-train-final', type=float, default=0.05)
     parser.add_argument('--buffer-size', type=int, default=100000)
+    parser.add_argument('--slow-buffer-size', type=int, default=10000)
     parser.add_argument('--lr', type=float, default=0.0001)
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--n-step', type=int, default=3)
@@ -161,10 +162,19 @@ def test_dqn(args=get_args()):
         print("Loaded agent from: ", args.resume_path)
     # replay buffer: `save_last_obs` and `stack_num` can be removed together
     # when you have enough RAM
-    buffer = TPVectorReplayBuffer(
-        args.buffer_size, buffer_num=len(train_envs), bk_step=args.bk_step,
-        ignore_obs_next=True,
-        save_only_last_obs=save_only_last_obs, stack_num=args.frames_stack)
+    if args.lfiw:
+        buffer = TPDoubleVectorReplayBuffer(
+            args.buffer_size, buffer_num=len(train_envs), bk_step=args.bk_step,
+            ignore_obs_next=True,
+            save_only_last_obs=save_only_last_obs, 
+            stack_num=args.frames_stack,
+            slow_buffer_size=args.slow_buffer_size
+            )
+    else:
+        buffer = TPVectorReplayBuffer(
+            args.buffer_size, buffer_num=len(train_envs), bk_step=args.bk_step,
+            ignore_obs_next=True,
+            save_only_last_obs=save_only_last_obs, stack_num=args.frames_stack)
     # collector
     train_collector = Collector(
         policy, 

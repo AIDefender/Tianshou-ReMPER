@@ -206,7 +206,21 @@ class TPRBManager(ReplayBufferManager):
             self.cur_traj_step = np.where(dones, 0, self.cur_traj_step + 1)
 
         return ptrs, *stats
-
+class TPRBDoubleManager(TPRBManager):
+    def __init__(self, buffer_list: List[ReplayBuffer], bk_step=False, 
+                 slow_buffer_size=None) -> None:
+        super().__init__(buffer_list, bk_step=bk_step)
+        self.slow_buffer_size = slow_buffer_size
+    
+    def __getitem__(self, index: Union[slice, int, List[int], np.ndarray]) -> Batch:
+        ori_batch = super().__getitem__(index)
+        single_buf_size = self.buffers[0].maxsize
+        single_fast_buf_size = self.slow_buffer_size // self.buffer_num
+        fast_index = np.array([i // single_buf_size * single_buf_size + \
+                        i % single_fast_buf_size for i in index])
+        ori_batch.update({"fast_obs": self.get(fast_index, "obs")})
+        ori_batch.update({"fast_act": self.act[fast_index]})
+        return ori_batch
 class PrioritizedReplayBufferManager(PrioritizedReplayBuffer, ReplayBufferManager):
     """PrioritizedReplayBufferManager contains a list of PrioritizedReplayBuffer with \
     exactly the same configuration.

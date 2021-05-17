@@ -107,9 +107,9 @@ def offpolicy_trainer(
                 data = {
                     "env_step": str(env_step),
                     "rew": f"{last_rew:.2f}",
-                    "len": str(int(last_len)),
-                    "n/ep": str(int(result["n/ep"])),
-                    "n/st": str(int(result["n/st"])),
+                    # "len": str(int(last_len)),
+                    # "n/ep": str(int(result["n/ep"])),
+                    # "n/st": str(int(result["n/st"])),
                 }
                 if result["n/ep"] > 0:
                     if test_in_train and stop_fn and stop_fn(result["rew"]):

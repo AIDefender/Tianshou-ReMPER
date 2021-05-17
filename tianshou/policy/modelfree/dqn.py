@@ -383,11 +383,10 @@ class LfiwTPDQNPolicy(TPDQNPolicy):
 
         # compute opd loss
         slow_preds = self(batch, output_dqn=False, output_opd=True).logits
-        # TODO: feed fast obs to fast preds
-        fast_preds = self(batch, output_dqn=False, output_opd=True).logits
+        fast_preds = self(batch, input="fast_obs", output_dqn=False, output_opd=True).logits
         # act_dim + 1 classes. The last class indicate the state is off-policy
         slow_label = torch.ones_like(slow_preds[:, 0], dtype=torch.int64) * self.model.output_dim
-        fast_label = to_torch_as(torch.tensor(batch.act), slow_label)
+        fast_label = to_torch_as(torch.tensor(batch.fast_act), slow_label)
         opd_loss = F.cross_entropy(slow_preds, slow_label) + \
                     F.cross_entropy(fast_preds, fast_label)
 
@@ -396,7 +395,11 @@ class LfiwTPDQNPolicy(TPDQNPolicy):
         loss.backward()
         self.optim.step()
         self._iter += 1
-        return {"loss": loss.item()}
+        return {
+            "loss": loss.item(), 
+            "dqn_loss": dqn_loss.item(), 
+            "opd_loss": opd_loss.item(),
+        }
 
     def process_fn(
         self, batch: Batch, buffer: ReplayBuffer, indice: np.ndarray
