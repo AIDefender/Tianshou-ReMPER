@@ -26,7 +26,7 @@ def get_args():
     parser.add_argument('--hidden-sizes', type=int, nargs='*', default=[256, 256, 256, 256])
     parser.add_argument('--eps-train-final', type=float, default=0.05)
     parser.add_argument('--buffer-size', type=int, default=100000)
-    parser.add_argument('--slow-buffer-size', type=int, default=10000)
+    parser.add_argument('--fast-buffer-size', type=int, default=10000)
     parser.add_argument('--lr', type=float, default=0.0001)
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--n-step', type=int, default=3)
@@ -168,7 +168,7 @@ def test_dqn(args=get_args()):
             ignore_obs_next=True,
             save_only_last_obs=save_only_last_obs, 
             stack_num=args.frames_stack,
-            slow_buffer_size=args.slow_buffer_size
+            fast_buffer_size=args.fast_buffer_size
             )
     else:
         buffer = TPVectorReplayBuffer(

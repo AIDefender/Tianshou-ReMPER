@@ -4,7 +4,7 @@ from typing import List, Tuple, Union, Sequence, Optional
 
 from tianshou.data import Batch, ReplayBuffer, PrioritizedReplayBuffer
 from tianshou.data.batch import _create_value, _alloc_by_keys_diff
-
+from collections import deque
 
 class ReplayBufferManager(ReplayBuffer):
     """ReplayBufferManager contains a list of ReplayBuffer with exactly the same \
@@ -208,16 +208,19 @@ class TPRBManager(ReplayBufferManager):
         return ptrs, *stats
 class TPRBDoubleManager(TPRBManager):
     def __init__(self, buffer_list: List[ReplayBuffer], bk_step=False, 
-                 slow_buffer_size=None) -> None:
+                 fast_buffer_size=None) -> None:
         super().__init__(buffer_list, bk_step=bk_step)
-        self.slow_buffer_size = slow_buffer_size
+        self.fast_buffer_size = fast_buffer_size
+        self.ptr_queue = deque(maxlen=self.fast_buffer_size)
+
+    def add(self, batch: Batch, buffer_ids: Optional[Union[np.ndarray, List[int]]]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        ptrs, *stats = super().add(batch, buffer_ids)
+        self.ptr_queue.extend(ptrs)
+        return ptrs, *stats
     
     def __getitem__(self, index: Union[slice, int, List[int], np.ndarray]) -> Batch:
         ori_batch = super().__getitem__(index)
-        single_buf_size = self.buffers[0].maxsize
-        single_fast_buf_size = self.slow_buffer_size // self.buffer_num
-        fast_index = np.array([i // single_buf_size * single_buf_size + \
-                        i % single_fast_buf_size for i in index])
+        fast_index = np.random.choice(self.ptr_queue, len(index))
         ori_batch.update({"fast_obs": self.get(fast_index, "obs")})
         ori_batch.update({"fast_act": self.act[fast_index]})
         return ori_batch
