@@ -325,6 +325,7 @@ class LfiwTPDQNPolicy(TPDQNPolicy):
         reweigh_hyper = None,
         env_fn = None,
         opd_loss_coeff = 0.1,
+        opd_temperature = 7.5,
         **kwargs: Any,
     ) -> None:
         super().__init__(
@@ -341,6 +342,7 @@ class LfiwTPDQNPolicy(TPDQNPolicy):
             **kwargs,
         )
         self.opd_loss_coeff = opd_loss_coeff
+        self.opd_temperature = opd_temperature
 
     def forward(self, 
                 batch: Batch, 
@@ -405,4 +407,15 @@ class LfiwTPDQNPolicy(TPDQNPolicy):
         self, batch: Batch, buffer: ReplayBuffer, indice: np.ndarray
     ) -> Batch:
         batch = super().process_fn(batch, buffer, indice)
+        with torch.no_grad():
+            # the degree of on-policiess
+            opd = self(batch, output_dqn=False, output_opd=True).logits
+            opd = opd[np.arange(len(opd)), batch.act]
+            opd_weights = torch.sigmoid(opd / self.opd_temperature)
+            opd_weights = opd_weights / torch.sum(opd_weights) * len(opd)
+        opd_weights = opd_weights.detach().cpu().numpy()
+        ori_weight = batch.pop("weight", 1.0)
+        ori_weight *= opd_weights
+        batch.weight = ori_weight
+
         return batch
