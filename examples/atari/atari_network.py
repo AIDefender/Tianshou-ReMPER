@@ -47,6 +47,46 @@ class DQN(nn.Module):
         x = torch.as_tensor(x, device=self.device, dtype=torch.float32)
         return self.net(x), state
 
+class LfiwDQN(DQN):
+
+    def __init__(
+        self,
+        c: int,
+        h: int,
+        w: int,
+        action_shape: Sequence[int],
+        device: Union[str, int, torch.device] = "cpu"
+    ):
+        super().__init__(c, h, w, action_shape, device, features_only=True)
+        self.dqn_net = nn.Sequential(
+            nn.Linear(self.output_dim, 512), nn.ReLU(inplace=True),
+            nn.Linear(512, np.prod(action_shape)))
+        # on-policy discriminator network
+        self.opd_net = nn.Sequential(
+            nn.Linear(self.output_dim, 256), nn.ReLU(inplace=True),
+            nn.Linear(256, np.prod(action_shape) + 1))
+        self.output_dim = np.prod(action_shape)
+
+    def forward(
+        self,
+        x: Union[np.ndarray, torch.Tensor],
+        state: Optional[Any] = None,
+        info: Dict[str, Any] = {},
+        # whether to output q value
+        output_dqn = True,
+        # whether to output the on-policiness of actions given a state
+        output_opd = False,
+    ) -> Tuple[torch.Tensor, Any]:
+        features, state = super().forward(x, state, info)
+        if output_dqn:
+            q_values = self.dqn_net(features)
+            return q_values, state
+        if output_opd:
+            opd = self.opd_net(features)
+            return opd, state
+        return features, state
+
+
 ModuleType = Type[nn.Module]
 class RamDQN(nn.Module):
     

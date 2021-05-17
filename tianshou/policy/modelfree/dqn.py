@@ -5,7 +5,7 @@ from typing import Any, Dict, Union, Optional
 
 from tianshou.policy import BasePolicy
 from tianshou.data import Batch, ReplayBuffer, to_torch_as, to_numpy
-
+import torch.nn.functional as F
 
 class DQNPolicy(BasePolicy):
     """Implementation of Deep Q Network. arXiv:1312.5602.
@@ -309,3 +309,97 @@ class TPDQNPolicy(DQNPolicy):
         weight = weight / np.sum(weight) * rel_step.shape[0]
 
         return weight
+
+class LfiwTPDQNPolicy(TPDQNPolicy):
+
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        optim: torch.optim.Optimizer,
+        discount_factor: float = 0.99,
+        estimation_step: int = 1,
+        target_update_freq: int = 0,
+        reward_normalization: bool = False,
+        bk_step: bool = False,
+        reweigh_type: str = "hard",
+        reweigh_hyper = None,
+        env_fn = None,
+        opd_loss_coeff = 0.1,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(
+            model = model,
+            optim = optim,
+            discount_factor = discount_factor,
+            estimation_step = estimation_step,
+            target_update_freq = target_update_freq,
+            reward_normalization = reward_normalization,
+            bk_step = bk_step,
+            reweigh_type = reweigh_type,
+            reweigh_hyper = reweigh_hyper,
+            env_fn = env_fn,
+            **kwargs,
+        )
+        self.opd_loss_coeff = opd_loss_coeff
+
+    def forward(self, 
+                batch: Batch, 
+                state: Optional[Union[dict, Batch, np.ndarray]] = None, 
+                model: str = "model", 
+                input: str = "obs", 
+                output_dqn = True,
+                output_opd = False,
+                **kwargs: Any
+    ) -> Batch:
+        model = getattr(self, model)
+        obs = batch[input]
+        obs_ = obs.obs if hasattr(obs, "obs") else obs
+        logits, h = model(obs_, state=state, info=batch.info, 
+                          output_dqn = output_dqn, 
+                          output_opd = output_opd)
+        if output_dqn:
+            q = self.compute_q_value(logits, getattr(obs, "mask", None))
+            if not hasattr(self, "max_action_num"):
+                self.max_action_num = q.shape[1]
+            act = to_numpy(q.max(dim=1)[1])
+        else:
+            act = None
+        return Batch(logits=logits, act=act, state=h)
+
+    def learn(self, batch: Batch, **kwargs: Any) -> Dict[str, float]:
+        if self._target and self._iter % self._freq == 0:
+            self.sync_weight()
+        self.optim.zero_grad()
+
+        # compute dqn loss
+        weight = batch.pop("weight", 1.0)
+        q = self(batch).logits
+        q = q[np.arange(len(q)), batch.act]
+        r = to_torch_as(batch.returns.flatten(), q)
+        weight = to_torch_as(weight, q)
+        td = r - q
+        dqn_loss = (td.pow(2) * weight).mean()
+        batch.weight = td  # prio-buffer
+
+        # compute opd loss
+        slow_preds = self(batch, output_dqn=False, output_opd=True).logits
+        # TODO: feed fast obs to fast preds
+        fast_preds = self(batch, output_dqn=False, output_opd=True).logits
+        # act_dim + 1 classes. The last class indicate the state is off-policy
+        slow_label = torch.ones_like(slow_preds[:, 0], dtype=torch.int64) * self.model.output_dim
+        fast_label = to_torch_as(torch.tensor(batch.act), slow_label)
+        opd_loss = F.cross_entropy(slow_preds, slow_label) + \
+                    F.cross_entropy(fast_preds, fast_label)
+
+        # compute loss and back prop
+        loss = dqn_loss + self.opd_loss_coeff * opd_loss
+        loss.backward()
+        self.optim.step()
+        self._iter += 1
+        return {"loss": loss.item()}
+
+    def process_fn(
+        self, batch: Batch, buffer: ReplayBuffer, indice: np.ndarray
+    ) -> Batch:
+        batch = super().process_fn(batch, buffer, indice)
+        return batch

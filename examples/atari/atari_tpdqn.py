@@ -7,13 +7,13 @@ import argparse
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 
-from tianshou.policy import TPDQNPolicy
+from tianshou.policy import TPDQNPolicy, LfiwTPDQNPolicy
 from tianshou.utils import BasicLogger
 from tianshou.env import SubprocVectorEnv
 from tianshou.trainer import offpolicy_trainer
 from tianshou.data import Collector, TPVectorReplayBuffer
 
-from atari_network import DQN, RamDQN
+from atari_network import DQN, RamDQN, LfiwDQN
 from atari_wrapper import wrap_deepmind, wrap_ram
 
 
@@ -55,6 +55,7 @@ def get_args():
                         default='hard')
     parser.add_argument("--linear_hp", type=float, nargs='*', default=[0.5, 1.5, 3., -0.3])
     parser.add_argument('--adaptive_scheme', type=float, nargs="*", default=[0.4, 0.8, 1.2, 1.6, 5e6, 1e7])
+    parser.add_argument('--lfiw', action='store_true')
     return parser.parse_args()
 
 
@@ -125,6 +126,9 @@ def test_dqn(args=get_args()):
                      args.action_shape, 
                      hidden_sizes=args.hidden_sizes,
                      device=args.device).to(args.device)
+    elif args.lfiw:
+        net = LfiwDQN(*args.state_shape,
+                args.action_shape, args.device).to(args.device)
     else:
         net = DQN(*args.state_shape,
                 args.action_shape, args.device).to(args.device)
@@ -139,11 +143,18 @@ def test_dqn(args=get_args()):
         "adaptive_linear": args.adaptive_scheme,
     }
     # define policy
-    policy = TPDQNPolicy(net, optim, args.gamma, args.n_step,
-                       target_update_freq=args.target_update_freq,
-                       bk_step=args.bk_step,
-                       reweigh_type=args.reweigh_type,
-                       reweigh_hyper=reweigh_hyper)
+    if args.lfiw:
+        policy = LfiwTPDQNPolicy(net, optim, args.gamma, args.n_step,
+                        target_update_freq=args.target_update_freq,
+                        bk_step=args.bk_step,
+                        reweigh_type=args.reweigh_type,
+                        reweigh_hyper=reweigh_hyper)
+    else:
+        policy = TPDQNPolicy(net, optim, args.gamma, args.n_step,
+                        target_update_freq=args.target_update_freq,
+                        bk_step=args.bk_step,
+                        reweigh_type=args.reweigh_type,
+                        reweigh_hyper=reweigh_hyper)
     # load a previous policy
     if args.resume_path:
         policy.load_state_dict(torch.load(args.resume_path, map_location=args.device))
