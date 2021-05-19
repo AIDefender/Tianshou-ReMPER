@@ -387,7 +387,7 @@ class LfiwTPDQNPolicy(TPDQNPolicy):
         slow_preds = self(batch, output_dqn=False, output_opd=True).logits
         fast_preds = self(batch, input="fast_obs", output_dqn=False, output_opd=True).logits
         # act_dim + 1 classes. The last class indicate the state is off-policy
-        slow_label = torch.ones_like(slow_preds[:, 0], dtype=torch.int64) * self.model.output_dim
+        slow_label = torch.ones_like(slow_preds[:, 0], dtype=torch.int64) * int(self.model.output_dim)
         fast_label = to_torch_as(torch.tensor(batch.fast_act), slow_label)
         opd_loss = F.cross_entropy(slow_preds, slow_label) + \
                     F.cross_entropy(fast_preds, fast_label)

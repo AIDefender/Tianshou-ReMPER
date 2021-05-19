@@ -136,6 +136,7 @@ def test_dqn(args=get_args()):
         net = DQN(*args.state_shape,
                 args.action_shape, args.device).to(args.device)
     optim = torch.optim.Adam(net.parameters(), lr=args.lr)
+    # possible TODO: lfiw_optim over non-cnn parameters
     # prepare hyperparameters
     adaptive_scheme = args.adaptive_scheme
     adaptive_scheme[4] *= args.update_per_step
